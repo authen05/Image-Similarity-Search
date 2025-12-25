@@ -100,7 +100,25 @@ else:
             
             # Display Results
             cols = st.columns(3)
+            # Display Results with a Threshold
+            cols = st.columns(3)
+            found_match = False
+            
             for i, idx in enumerate(indices[0]):
+                score = 1 - distances[0][i]
+                
+                # Only show if the similarity is reasonably high (e.g., > 0.5)
+                # You can adjust this number. 1.0 is perfect match, 0.0 is no match.
+                if score > 0.60: 
+                    found_match = True
+                    with cols[i % 3]:
+                        match_file = st.session_state['file_names'][idx]
+                        match_path = os.path.join(image_folder, match_file)
+                        match_img = Image.open(match_path)
+                        st.image(match_img, caption=f"Match {i+1}\nSimilarity: {score:.2f}")
+            
+            if not found_match:
+                st.warning("No visually similar images found in the database. Try adding more images!")
                 # Logic to display results in a grid
                 with cols[i % 3]:
                     match_file = st.session_state['file_names'][idx]
