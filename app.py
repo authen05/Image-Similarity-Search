@@ -14,6 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # --- 2. CUSTOM CSS ---
 st.markdown("""
     <style>
