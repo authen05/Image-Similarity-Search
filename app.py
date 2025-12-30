@@ -7,34 +7,27 @@ import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
 
-# --- 1. PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="Visual Search AI",
-    page_icon="🔍",
-    layout="wide"
-)
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Visual Search", layout="wide")
 
+# --- DEBUG TITLE (To prove update worked) ---
+st.title("✅ UPDATE SUCCESSFUL: New Version 2.0")
+st.success("If you see this green box, the code has updated!")
 
-# --- 2. CUSTOM CSS ---
+# --- CSS STYLES ---
 st.markdown("""
     <style>
     .stButton>button {
         width: 100%;
-        background-color: #FF4B4B;
+        background-color: #ff4b4b;
         color: white;
-        font-weight: bold;
         height: 50px;
         border-radius: 10px;
-    }
-    .stButton>button:hover {
-        background-color: white;
-        color: #FF4B4B;
-        border: 2px solid #FF4B4B;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. MODEL & FUNCTIONS ---
+# --- MODEL LOADING ---
 @st.cache_resource
 def load_model():
     model = models.resnet50(pretrained=True)
@@ -56,102 +49,68 @@ def extract_features(image, model):
         features = model(img_tensor)
     return features.flatten().numpy()
 
-# --- 4. SIDEBAR & SETTINGS ---
+# --- SIDEBAR & SETTINGS ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/1150/1150626.png", width=80)
     st.header("⚙️ Settings")
-    
-    # NEW: Slider to control how strict the AI is
-    similarity_threshold = st.slider(
-        "Match Threshold (%)", 
-        min_value=0, 
-        max_value=100, 
-        value=60, 
-        help="If match similarity is below this number, show an error."
-    ) / 100.0
+    # THE SLIDER YOU ASKED FOR
+    similarity_threshold = st.slider("Strictness (%)", 0, 100, 60, 5) / 100.0
     
     st.divider()
     
+    # LOAD IMAGES
     image_folder = 'images'
-    try:
+    if os.path.exists(image_folder):
+        # SORTED FIX
         image_files = sorted([f for f in os.listdir(image_folder) if f.endswith(('.png', '.jpg', '.jpeg'))])
-        st.success(f"Database: {len(image_files)} images.")
-    except FileNotFoundError:
-        st.error("Error: 'images' folder missing!")
+        st.write(f"images loaded: {len(image_files)}")
+    else:
+        st.error("Images folder missing!")
         image_files = []
 
-# --- 5. MAIN APP ---
-st.title("🔍 Deep Learning Image Similarity Search")
-st.markdown("---")
-
+# --- MAIN APP ---
 model = load_model()
 
-# Indexing (Only runs once)
+# Index Database
 if 'features_db' not in st.session_state and image_files:
-    with st.spinner("Indexing Database..."):
-        features_list = []
-        for img_file in image_files:
-            img = Image.open(os.path.join(image_folder, img_file))
-            features = extract_features(img, model)
-            features_list.append(features)
-        st.session_state['features_db'] = np.array(features_list)
-        st.session_state['file_names'] = image_files
+    features_list = []
+    for img_file in image_files:
+        img = Image.open(os.path.join(image_folder, img_file))
+        features = extract_features(img, model)
+        features_list.append(features)
+    st.session_state['features_db'] = np.array(features_list)
+    st.session_state['file_names'] = image_files
 
-# Search Layout
+# UI Layout
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("1. Upload Photo")
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
-    
+    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
     if uploaded_file:
         query_img = Image.open(uploaded_file)
-        st.image(query_img, caption="Query Image", use_column_width=True)
-        search_click = st.button("🚀 Search Similar Images")
+        st.image(query_img, width=250)
+        search = st.button("Search")
     else:
-        search_click = False
+        search = False
 
 with col2:
-    st.subheader("2. Results")
-    
-    if search_click and uploaded_file and 'features_db' in st.session_state:
-        with st.spinner("Analyzing..."):
-            
-            # Extract features
-            query_features = extract_features(query_img, model).reshape(1, -1)
-            
-            # Search logic
-            neighbors = NearestNeighbors(n_neighbors=5, metric='cosine')
-            neighbors.fit(st.session_state['features_db'])
-            distances, indices = neighbors.kneighbors(query_features)
-            
-            # NEW: Error Handling Logic
-            best_score = 1 - distances[0][0] # Score of the very best match
-            
-            if best_score < similarity_threshold:
-                # ERROR CONDITION
-                st.error(f"❌ No matching images found!")
-                st.warning(f"""
-                The closest match was only **{int(best_score*100)}%** similar.
-                This is below your threshold of **{int(similarity_threshold*100)}%**.
-                
-                **Why?**
-                - We don't have this object in the database.
-                - The angle or lighting is very different.
-                """)
-            else:
-                # SUCCESS CONDITION
-                results_cols = st.columns(3)
-                count = 0
-                for i, idx in enumerate(indices[0]):
-                    score = 1 - distances[0][i]
-                    
-                    # Only show matches that pass the threshold
-                    if score >= similarity_threshold:
-                        match_file = st.session_state['file_names'][idx]
-                        match_path = os.path.join(image_folder, match_file)
-                        
-                        with results_cols[count % 3]:
-                            st.image(match_path, use_column_width=True)
-                            st.caption(f"**Match {count+1}**\nSimilarity: {int(score*100)}%")
-                        count += 1
+    if search and uploaded_file:
+        # Search
+        query_features = extract_features(query_img, model).reshape(1, -1)
+        neighbors = NearestNeighbors(n_neighbors=5, metric='cosine')
+        neighbors.fit(st.session_state['features_db'])
+        distances, indices = neighbors.kneighbors(query_features)
+        
+        # ERROR LOGIC
+        best_score = 1 - distances[0][0]
+        st.write(f"**Best Match Confidence:** {int(best_score * 100)}%")
+        
+        if best_score < similarity_threshold:
+            st.error("❌ No match found! (Below threshold)")
+            st.info(f"Try lowering the strictness slider in the sidebar (Current: {int(similarity_threshold*100)}%)")
+        else:
+            cols = st.columns(3)
+            for i, idx in enumerate(indices[0]):
+                score = 1 - distances[0][i]
+                if score >= similarity_threshold:
+                    match_file = st.session_state['file_names'][idx]
+                    st.image(os.path.join(image_folder, match_file), caption=f"{int(score*100)}% match")
