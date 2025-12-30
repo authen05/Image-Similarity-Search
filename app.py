@@ -65,7 +65,7 @@ with st.sidebar:
         "Match Threshold (%)", 
         min_value=0, 
         max_value=100, 
-        value=60, 
+        value=70, 
         help="If match similarity is below this number, show an error."
     ) / 100.0
     
