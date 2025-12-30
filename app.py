@@ -80,7 +80,7 @@ with st.sidebar:
         image_files = []
 
 # --- 5. MAIN APP ---
-st.title("🔍 Deep Learning Image Similarity Search")
+st.title("🔍 Image Similarity Search")
 st.markdown("---")
 
 model = load_model()
